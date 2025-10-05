@@ -11,12 +11,12 @@ fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([700.0, 650.0])
-            .with_title("Trasferimento File LAN Sicuro"),
+            .with_title("LanBeam"),
         ..Default::default()
     };
     
     eframe::run_native(
-        "LAN File Transfer",
+        "LanBeam",
         options,
         Box::new(|_cc| Ok(Box::new(FileTransferApp::default()))),
     )
@@ -155,7 +155,7 @@ impl FileTransferApp {
                     }
                 }
             } else {
-                *status.lock().unwrap() = format!("Errore: impossibile avviare il server sulla porta {}", port);
+                *status.lock().unwrap() = format!("Impossibile avviare il server sulla porta {}", port);
             }
         });
     }
@@ -227,8 +227,6 @@ impl FileTransferApp {
 impl eframe::App for FileTransferApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("🔐 Trasferimento File LAN Sicuro");
-            ui.add_space(10.0);
 
             ui.horizontal(|ui| {
                 ui.selectable_value(&mut self.mode, AppMode::Share, "📤 Condividi");
@@ -240,9 +238,10 @@ impl eframe::App for FileTransferApp {
 
             match self.mode {
                 AppMode::Share => {
-                    ui.heading("Modalità Condivisione");
-                    ui.label("Aggiungi file da condividere e avvia il server");
-                    ui.add_space(10.0);
+					
+					if let Ok(local_ip) = get_local_ip() {
+                        ui.label(format!("IP: {}", local_ip));
+                    }
 
                     ui.horizontal(|ui| {
                         ui.label("Porta:");
@@ -251,19 +250,18 @@ impl eframe::App for FileTransferApp {
                     if self.server_port.is_empty() { self.server_port = "8080".to_string(); }
 
                     ui.add_space(10.0);
-                    ui.checkbox(&mut self.server_encryption_enabled, "🔒 Abilita crittografia");
+                    ui.checkbox(&mut self.server_encryption_enabled, "Crittografia");
 
                     if self.server_encryption_enabled {
                         ui.horizontal(|ui| {
                             ui.label("Password:");
                             ui.add(egui::TextEdit::singleline(&mut self.server_password).password(true));
                         });
-                        ui.label("⚠️ Condividi questa password con chi scaricherà i file");
                     }
 
                     ui.add_space(10.0);
 
-                    if ui.button("➕ Aggiungi File da Condividere").clicked() {
+                    if ui.button("Aggiungi File").clicked() {
                         self.add_file_to_share();
                     }
 
@@ -306,40 +304,27 @@ impl eframe::App for FileTransferApp {
                         if !is_running {
                             let has_files = !self.server_shared_files.lock().unwrap().is_empty();
                             let can_start = has_files && (!self.server_encryption_enabled || !self.server_password.is_empty());
-                            if ui.add_enabled(can_start, egui::Button::new("▶ Avvia Server")).clicked() {
+                            if ui.add_enabled(can_start, egui::Button::new("Avvia Server")).clicked() {
                                 self.start_server();
                             }
-                            if !has_files { ui.label("⚠️ Aggiungi almeno un file"); }
+                            if !has_files { ui.label("Aggiungi almeno un file"); }
                         } else {
-                            if ui.button("⏹ Ferma Server").clicked() {
+                            if ui.button("Ferma Server").clicked() {
                                 self.stop_server();
                             }
                         }
                     });
 
-                    let status = self.server_status.lock().unwrap().clone();
-                    ui.label(format!("Stato: {}", status));
-
                     let progress = *self.server_progress.lock().unwrap();
                     if progress > 0.0 && progress < 100.0 {
                         ui.add(egui::ProgressBar::new(progress / 100.0).text(format!("{:.1}%", progress)));
                     }
-
-                    if let Ok(local_ip) = get_local_ip() {
-                        ui.add_space(10.0);
-                        ui.separator();
-                        ui.label(format!("💡 Il tuo IP locale: {}", local_ip));
-                        ui.label(format!("   Altri possono connettersi a: {}:{}", local_ip, self.server_port));
-                    }
                 }
 
                 AppMode::Download => {
-                    ui.heading("Modalità Download");
-                    ui.label("Connettiti a un server e scarica i file disponibili");
-                    ui.add_space(10.0);
 
                     ui.horizontal(|ui| {
-                        ui.label("IP Server: ");
+                        ui.label("IP: ");
                         ui.text_edit_singleline(&mut self.client_ip);
                     });
                     ui.horizontal(|ui| {
@@ -349,7 +334,7 @@ impl eframe::App for FileTransferApp {
                     if self.client_port.is_empty() { self.client_port = "8080".to_string(); }
 
                     ui.add_space(10.0);
-                    ui.checkbox(&mut self.client_encryption_enabled, "🔒 File criptati");
+                    ui.checkbox(&mut self.client_encryption_enabled, "Crittografia");
                     if self.client_encryption_enabled {
                         ui.horizontal(|ui| {
                             ui.label("Password:");
@@ -359,10 +344,10 @@ impl eframe::App for FileTransferApp {
 
                     ui.add_space(10.0);
                     ui.horizontal(|ui| {
-                        if ui.button("🔍 Cerca File Disponibili").clicked() {
+                        if ui.button("🔍 Cerca File").clicked() {
                             self.request_file_list();
                         }
-                        if ui.button("⬇ Scarica Tutti").clicked() {
+                        if ui.button("Scarica Tutti").clicked() {
                             self.download_all_files();
                         }
                     });
@@ -386,7 +371,7 @@ impl eframe::App for FileTransferApp {
                                         if file.encrypted { "🔒" } else { "" },
                                         format_file_size(file.size)
                                     ));
-                                    if ui.button("⬇ Scarica").clicked() {
+                                    if ui.button("Scarica").clicked() {
                                         to_download.push(file.name.clone());
                                     }
                                 });
@@ -400,9 +385,6 @@ impl eframe::App for FileTransferApp {
                     }
 
                     ui.add_space(10.0);
-                    if !self.client_status.is_empty() {
-                        ui.label(format!("Stato: {}", self.client_status));
-                    }
 
                     let progress = *self.client_progress.lock().unwrap();
                     if progress > 0.0 && progress < 100.0 {
@@ -460,7 +442,7 @@ fn handle_client(
             stream.write_all(&[if f.encrypted {1} else {0}])?;
         }
         stream.flush()?;
-        *status.lock().unwrap() = format!("✓ Inviata lista a {}", peer);
+        *status.lock().unwrap() = format!("Inviata lista a {}", peer);
         return Ok(());
     }
 
@@ -513,7 +495,7 @@ fn handle_client(
 
         stream.flush()?;
         *progress.lock().unwrap() = 100.0;
-        *status.lock().unwrap() = format!("✓ Inviato {} a {}", requested, peer);
+        *status.lock().unwrap() = format!("Inviato {} a {}", requested, peer);
         thread::sleep(Duration::from_secs(2));
         *progress.lock().unwrap() = 0.0;
     }
