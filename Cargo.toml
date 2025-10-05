@@ -1,0 +1,9 @@
+[package]
+name = "p2p_file_share"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+eframe = "0.28"
+egui = "0.28"
+rfd = "0.14"
