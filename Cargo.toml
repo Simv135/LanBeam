@@ -1,9 +1,28 @@
 [package]
-name = "p2p_file_share"
+name = "lanbeam"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
 
 [dependencies]
-eframe = "0.28"
-egui = "0.28"
-rfd = "0.14"
+eframe = "0.27"
+egui = "0.27"
+serde = { version = "1.0", features = ["derive"] }
+chrono = "0.4"
+md5 = "0.7"
+open = "4.0"
+zip = "0.6"
+serde_json = "1.0.145"
+rfd = "0.15.4"
+
+# Per Windows - nasconde la console
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["winuser"] }
+
+# Per la build - icona Windows
+[build-dependencies]
+winres = "0.1"
+
+[package.metadata.winres]
+Icon = "icon.ico"
+Console = false
