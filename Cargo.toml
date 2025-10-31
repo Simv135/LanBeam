@@ -1,5 +1,5 @@
 [package]
-name = "lanbeam"
+name = "LanBeam"
 version = "0.1.0"
 edition = "2021"
 build = "build.rs"
@@ -11,18 +11,10 @@ serde = { version = "1.0", features = ["derive"] }
 chrono = "0.4"
 md5 = "0.7"
 open = "4.0"
-zip = "0.6"
+zip = { version = "0.6", default-features = false, features = ["deflate"] }
 serde_json = "1.0.145"
 rfd = "0.15.4"
+dirs = "5.0"
 
-# Per Windows - nasconde la console
-[target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3", features = ["winuser"] }
-
-# Per la build - icona Windows
 [build-dependencies]
 winres = "0.1"
-
-[package.metadata.winres]
-Icon = "icon.ico"
-Console = false
