@@ -1,10 +1,8 @@
 # LanBeam - Trasferimento File LAN
 
-![Rust](https://img.shields.io/badge/Rust-1.70%2B-orange)
-![GUI](https://img.shields.io/badge/GUI-egui--eframe-blue)
-![License](https://img.shields.io/badge/License-MIT-green)
-
 **LanBeam** è un'applicazione desktop per il trasferimento di file tramite rete LAN con interfaccia grafica moderna e funzionalità avanzate.
+
+[download](https://github.com/Simv135/LanBeam/releases)
 
 ## ✨ Caratteristiche Principali
 
