@@ -1,3 +1,5 @@
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use eframe::egui;
 use std::net::{TcpListener, TcpStream};
 use std::io::{Read, Write, ErrorKind};
@@ -10,6 +12,7 @@ use std::collections::VecDeque;
 use serde::{Deserialize, Serialize};
 use chrono::Local;
 use std::sync::atomic::{AtomicBool, Ordering};
+use dirs;
 
 /// Tipo personalizzato per gestione errori
 type AppResult<T> = Result<T, Box<dyn std::error::Error>>;
@@ -27,12 +30,16 @@ struct AppConfig {
 
 impl Default for AppConfig {
     fn default() -> Self {
+        let download_folder = get_app_data_dir()
+            .map(|p| p.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "LanBeam".to_string());
+
         Self {
             last_server_port: "8080".to_string(),
             last_client_ip: "".to_string(),
             last_client_port: "8080".to_string(),
             encryption_enabled: false,
-            download_folder: "downloads".to_string(),
+            download_folder,
             auto_extract_zip: true,
         }
     }
@@ -155,15 +162,26 @@ const BUFFER_SIZE: usize = 64 * 1024; // 64KB
 /// Estensioni supportate per archivi
 const ARCHIVE_EXTENSIONS: &[&str] = &["zip", "rar", "7z", "tar", "gz", "bz2"];
 
+/// Ottiene la directory dell'applicazione (stessa per downloads, config e log)
+fn get_app_data_dir() -> Option<PathBuf> {
+    dirs::data_local_dir().map(|mut path| {
+        path.push("LanBeam");
+        path
+    })
+}
+
 /// Log eventi
 fn log_event(message: &str) {
     println!("{}", message);
-    if let Ok(mut file) = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open("lanbeam.log") 
-    {
-        let _ = writeln!(file, "{}: {}", Local::now().format("%Y-%m-%d %H:%M:%S"), message);
+    if let Some(app_dir) = get_app_data_dir() {
+        let log_file = app_dir.join("lanbeam.log");
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(log_file) 
+        {
+            let _ = writeln!(file, "{}: {}", Local::now().format("%Y-%m-%d %H:%M:%S"), message);
+        }
     }
 }
 
@@ -396,8 +414,15 @@ fn connect_with_timeout(addr: &str, timeout: Duration) -> std::io::Result<TcpStr
 /// Ottiene IP locale
 fn get_local_ip() -> Result<String, std::io::Error> {
     let udp_socket = std::net::UdpSocket::bind("0.0.0.0:0")?;
-    udp_socket.connect("8.8.8.8:80")?;
-    Ok(udp_socket.local_addr()?.ip().to_string())
+    if udp_socket.connect("8.8.8.8:80").is_err() {
+        return Ok("nessuna rete".to_string());
+    }
+    let ip = udp_socket.local_addr()?.ip().to_string();
+    if ip == "0.0.0.0" || ip == "::" {
+        Ok("nessuna rete".to_string())
+    } else {
+        Ok(ip)
+    }
 }
 
 /// Raccoglie file ricorsivamente
@@ -426,11 +451,13 @@ fn collect_files_recursive(base: &Path, current: &Path, out: &mut Vec<(String, P
 // --- Implementazione App ---
 impl FileTransferApp {
     fn load_config() -> AppResult<AppConfig> {
-        if let Ok(content) = std::fs::read_to_string("lanbeam_config.json") {
-            Ok(serde_json::from_str(&content)?)
-        } else {
-            Ok(AppConfig::default())
+        if let Some(app_dir) = get_app_data_dir() {
+            let config_file = app_dir.join("lanbeam_config.json");
+            if let Ok(content) = std::fs::read_to_string(config_file) {
+                return Ok(serde_json::from_str(&content)?);
+            }
         }
+        Ok(AppConfig::default())
     }
 
     fn save_config(&self) {
@@ -443,8 +470,11 @@ impl FileTransferApp {
             auto_extract_zip: self.auto_extract_zip,
         };
         
-        if let Ok(content) = serde_json::to_string_pretty(&config) {
-            let _ = std::fs::write("lanbeam_config.json", content);
+        if let Some(app_dir) = get_app_data_dir() {
+            let config_file = app_dir.join("lanbeam_config.json");
+            if let Ok(content) = serde_json::to_string_pretty(&config) {
+                let _ = std::fs::write(config_file, content);
+            }
         }
     }
 
@@ -629,7 +659,8 @@ impl FileTransferApp {
             return;
         }
 
-        let file_path = PathBuf::from(&self.config.download_folder).join(&filename);
+        let mut file_path = PathBuf::from(&self.config.download_folder).join(&filename);
+		file_path.push("downloads");
         if file_path.exists() {
             self.client_status = format!("File {} già presente", filename);
             return;
@@ -825,16 +856,21 @@ impl FileTransferApp {
     }
 
     fn open_download_folder(&self) {
-        let path = PathBuf::from(&self.config.download_folder);
-        if path.exists() {
-            if let Err(e) = open::that(&path) {
-                self.add_error(format!("Impossibile aprire la cartella: {}", e));
+        let mut path = PathBuf::from(&self.config.download_folder);
+		path.push("downloads");
+        
+        // Se il percorso non esiste, prova a crearlo
+        if !path.exists() {
+            if let Err(e) = create_dir_all(&path) {
+                self.add_error(format!("Impossibile creare la cartella: {}", e));
+                return;
             }
-        } else {
-            self.add_error("La cartella downloads non esiste".to_string());
+        }
+        
+        if let Err(e) = open::that(&path) {
+            self.add_error(format!("Impossibile aprire la cartella: {}", e));
         }
     }
-
 }
 
 // --- Gestione client/server ---
@@ -1084,6 +1120,7 @@ fn download_file_from_server(
     let total_size = u64::from_be_bytes(size_buf);
 
     let mut file_path = PathBuf::from(download_folder);
+	file_path.push("downloads");
     let rel = Path::new(filename);
     for component in rel.components() {
         file_path.push(component.as_os_str());
@@ -1612,11 +1649,14 @@ impl eframe::App for FileTransferApp {
 }
 
 fn main() -> Result<(), eframe::Error> {
-    let _ = create_dir_all("downloads");
+    // Crea le directory necessarie all'avvio
+    if let Some(app_dir) = get_app_data_dir() {
+        let _ = create_dir_all(&app_dir);
+    }
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_inner_size([800.0, 800.0])
+            .with_inner_size([800.0, 500.0])
             .with_title("LanBeam - Trasferimento File LAN"),
         ..Default::default()
     };
