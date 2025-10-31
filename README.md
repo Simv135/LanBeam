@@ -2,7 +2,7 @@
 
 **LanBeam** è un'applicazione desktop per il trasferimento di file tramite rete LAN con interfaccia grafica moderna e funzionalità avanzate.
 
-[download](https://github.com/Simv135/LanBeam/releases)
+[download pre-release](https://github.com/Simv135/LanBeam/releases)
 
 ## ✨ Caratteristiche Principali
 
