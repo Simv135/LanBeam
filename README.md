@@ -1,141 +1,141 @@
-# LanBeam - Trasferimento File LAN
+# LanBeam - LAN File Transfer
 
-**LanBeam** è un'applicazione desktop per il trasferimento di file tramite rete LAN con interfaccia grafica moderna e funzionalità avanzate.
+**LanBeam** is a desktop application for transferring files via a Local Area Network (LAN), featuring a modern graphical interface and advanced functionalities.
 
-[download pre-release](https://github.com/Simv135/LanBeam/releases)
+[Download Pre-release](https://github.com/Simv135/LanBeam/releases)
 
-## ✨ Caratteristiche Principali
+## ✨ Key Features
 
-### 🚀 Funzionalità Core
-- **Condivisione File**: Trasforma il tuo PC in un server per condividere file e cartelle
-- **Download Multipli**: Scarica file da altri dispositivi sulla rete
-- **Interfaccia Intuitiva**: GUI moderna e responsive con egui/eframe
-- **Multi-piattaforma**: Compatibile con Windows, macOS e Linux
+### 🚀 Core Functionality
+*   **File Sharing**: Turn your PC into a server to share files and folders.
+*   **Multiple Downloads**: Download files from other devices on the network.
+*   **Intuitive Interface**: Modern and responsive GUI built with egui/eframe.
+*   **Cross-Platform**: Compatible with Windows, macOS, and Linux.
 
-### 🔒 Sicurezza
-- **Crittografia Opzionale**: Proteggi i trasferimenti con password
-- **Autenticazione**: Controllo degli accessi per file crittografati
-- **Gestione Errori**: Sistema di logging e notifiche errori
+### 🔒 Security
+*   **Optional Encryption**: Protect transfers with a password.
+*   **Authentication**: Access control for encrypted files.
+*   **Error Handling**: Logging system and error notifications.
 
-### 📊 Gestione Avanzata
-- **Code di Download**: Download multipli con gestione delle priorità
-- **Pausa/Riprendi**: Controllo completo sui trasferimenti
-- **Progresso in Tempo Reale**: Monitoraggio dettagliato con velocità di trasferimento
-- **Estrazione Automatica**: Decompressione automatica degli archivi ZIP
+### 📊 Advanced Management
+*   **Download Queue**: Multiple downloads with priority management.
+*   **Pause/Resume**: Full control over active transfers.
+*   **Real-Time Progress**: Detailed monitoring with transfer speed.
+*   **Auto-Extraction**: Automatic decompression of ZIP archives.
 
-### 🗂️ Organizzazione File
-- **Gestione Cartelle**: Supporto per condivisione ricorsiva di cartelle
-- **Download Folder**: Directory dedicata per i file scaricati
-- **Separazione Archivi**: Riconoscimento automatico dei file compressi
+### 🗂️ File Organization
+*   **Folder Management**: Support for recursive folder sharing.
+*   **Download Folder**: Dedicated directory for downloaded files.
+*   **Archive Separation**: Automatic recognition of compressed files.
 
-## 📖 Guida all'Uso
+## 📖 User Guide
 
-### Modalità Condivisione (Share) 📤
+### Share Mode 📤
 
-1. **Configurazione Server**
-   - Inserisci la porta desiderata (default: 8080)
-   - Abilita la crittografia se necessario
-   - Imposta una password per i file crittografati
+1.  **Server Setup**
+    *   Enter the desired port (default: 8080).
+    *   Enable encryption if necessary.
+    *   Set a password for encrypted files.
 
-2. **Aggiunta File**
-   - Clicca "Aggiungi File" per selezionare singoli file
-   - Clicca "Aggiungi Cartella" per condividere intere directory
-   - I file vengono mostrati nella lista con dimensioni e tipo
+2.  **Adding Files**
+    *   Click "Add File" to select individual files.
+    *   Click "Add Folder" to share entire directories.
+    *   Files are displayed in a list with size and type.
 
-3. **Avvio Server**
-   - Clicca "Avvia Server" per iniziare la condivisione
-   - Condividi il tuo IP e porta con altri dispositivi
-   - Monitora i trasferimenti attivi in tempo reale
+3.  **Starting the Server**
+    *   Click "Start Server" to begin sharing.
+    *   Share your IP address and port with other devices.
+    *   Monitor active transfers in real-time.
 
-### Modalità Download (Download) 📥
+### Download Mode 📥
 
-1. **Connessione al Server**
-   - Inserisci IP e porta del server remoto
-   - Abilita crittografia se richiesto dal server
-   - Inserisci la password corretta
+1.  **Connecting to a Server**
+    *   Enter the remote server's IP address and port.
+    *   Enable encryption if required by the server.
+    *   Enter the correct password.
 
-2. **Ricerca File**
-   - Clicca "Cerca File" per ottenere la lista dei file disponibili
-   - I file vengono mostrati con dimensioni e stato crittografia
+2.  **Browsing Files**
+    *   Click "Search Files" to retrieve the list of available files.
+    *   Files are displayed with size and encryption status.
 
-3. **Download**
-   - Clicca "Scarica" su singoli file o "Scarica Tutti"
-   - I download vengono accodati automaticamente
-   - Monitora il progresso con velocità di trasferimento
+3.  **Downloading**
+    *   Click "Download" on individual files or use "Download All".
+    *   Downloads are automatically queued.
+    *   Monitor progress and transfer speed.
 
-## 🎛️ Comandi Trasferimento
+## 🎛️ Transfer Controls
 
-### Controlli Disponibili
-- **▶️ Riprendi**: Continua un trasferimento in pausa
-- **⏸️ Pausa**: Metti in pausa un trasferimento attivo
-- **❌ Annulla**: Interrompi definitivamente un trasferimento
-- **🧹 Pulisci**: Rimuovi i trasferimenti completati
+### Available Controls
+*   **▶️ Resume**: Continue a paused transfer.
+*   **⏸️ Pause**: Temporarily suspend an active transfer.
+*   **❌ Cancel**: Permanently stop a transfer.
+*   **🧹 Clear**: Remove completed transfers from the list.
 
-### Stati Trasferimento
-- **⏳ In Coda**: In attesa di essere processato
-- **📤 Trasferendo**: Download/upload in corso
-- **⏸️ In Pausa**: Trasferimento sospeso temporaneamente
-- **📦 Estraendo**: Estrazione archivio in corso
-- **✅ Completato**: Operazione terminata con successo
-- **❌ Annullato**: Operazione interrotta dall'utente
-- **⚠️ Errore**: Si è verificato un errore
+### Transfer Status
+*   **⏳ Queued**: Waiting to be processed.
+*   **📤 Transferring**: Download/upload in progress.
+*   **⏸️ Paused**: Transfer is temporarily suspended.
+*   **📦 Extracting**: Archive extraction in progress.
+*   **✅ Completed**: Operation finished successfully.
+*   **❌ Cancelled**: Operation stopped by the user.
+*   **⚠️ Error**: An error occurred.
 
-## ⚙️ Configurazione
+## ⚙️ Configuration
 
-### File di Configurazione
-L'app salva automaticamente le impostazioni in:
-- **Windows**: `%APPDATA%\Local\LanBeam\lanbeam_config.json`
-- **Linux**: `~/.local/share/LanBeam/lanbeam_config.json`
-- **macOS**: `~/Library/Application Support/LanBeam/lanbeam_config.json`
+### Configuration File
+The app automatically saves settings to:
+*   **Windows**: `%APPDATA%\Local\LanBeam\lanbeam_config.json`
+*   **Linux**: `~/.local/share/LanBeam/lanbeam_config.json`
+*   **macOS**: `~/Library/Application Support/LanBeam/lanbeam_config.json`
 
-### Impostazioni Persistenti
-- Ultime porte utilizzate
-- Preferenze crittografia
-- Cartella download predefinita
-- Impostazione estrazione automatica ZIP
+### Persistent Settings
+*   Last used ports.
+*   Encryption preferences.
+*   Default download folder.
+*   Automatic ZIP extraction setting.
 
-## 🔧 Risoluzione Problemi
+## 🔧 Troubleshooting
 
-### Problemi Comuni
+### Common Issues
 
-**Connessione Rifiutata**
-- Verifica che il firewall permetta connessioni sulla porta specificata
-- Controlla che il server sia attivo e in ascolto
-- Verifica che IP e porta siano corretti
+**Connection Refused**
+*   Verify the firewall allows connections on the specified port.
+*   Check that the server is active and listening.
+*   Ensure the IP address and port are correct.
 
-**Download Incompleto**
-- Controlla lo spazio su disco disponibile
-- Verifica la stabilità della connessione di rete
-- Assicurati di avere i permessi di scrittura
+**Incomplete Download**
+*   Check available disk space.
+*   Verify network connection stability.
+*   Ensure you have write permissions.
 
-**File Non Trovati**
-- Sul server: verifica che i file siano ancora presenti nel percorso originale
-- Sul client: controlla che il nome del file non contenga caratteri speciali
+**File Not Found**
+*   **On the server**: Verify the files still exist in their original location.
+*   **On the client**: Check that the filename does not contain special characters.
 
-### Log e Debug
-I log dell'applicazione sono salvati in `lanbeam.log` nella cartella dati dell'app. Controlla questo file per diagnosticare problemi complessi.
+### Logs and Debug
+Application logs are saved to `lanbeam.log` in the app's data folder. Check this file to diagnose complex issues.
 
-## 📋 Requisiti di Sistema
+## 📋 System Requirements
 
-- **Sistema Operativo**: Windows 10+, macOS 10.15+, o Linux moderno
-- **Memoria RAM**: 100MB minimo, 512MB raccomandato
-- **Spazio Disco**: 50MB per l'applicazione + spazio per i file trasferiti
-- **Rete**: Connessione LAN funzionante, TCP/IP abilitato
+*   **Operating System**: Windows 10+, macOS 10.15+, or modern Linux.
+*   **RAM**: 100MB minimum, 512MB recommended.
+*   **Disk Space**: 50MB for the application + space for transferred files.
+*   **Network**: Functional LAN connection, TCP/IP enabled.
 
-## 🚀 Limitazioni Note
+## 🚀 Known Limitations
 
-- **Dimensione Massima File**: 10GB per file
-- **Connessioni Simultanee**: Gestione base, non ottimizzata per centinaia di connessioni
-- **Reti Complesse**: Potrebbero esserci problemi su reti con NAT complessi
+*   **Maximum File Size**: 10GB per file.
+*   **Simultaneous Connections**: Basic management, not optimized for hundreds of connections.
+*   **Complex Networks**: Issues may arise on networks with complex NAT configurations.
 
-## 🔒 Considerazioni Sicurezza
+## 🔒 Security Considerations
 
-- La crittografia usa XOR con chiave MD5 (base, non per dati sensibili)
-- Non esporre il server su internet senza firewall appropriato
-- Le password vengono memorizzate in memoria durante la sessione
+*   Encryption uses XOR with an MD5 key (basic, not for sensitive data).
+*   Do not expose the server to the internet without an appropriate firewall.
+*   Passwords are stored in memory during the session.
 
-## 📄 Licenza
+## 📄 License
 
-Distribuito sotto licenza MIT. Vedere `LICENSE` per dettagli.
+Distributed under the MIT License. See `LICENSE` for details.
 
-**Nota**: Questo software è progettato per uso in reti locali trusted. Utilizzare appropriati strumenti di sicurezza per reti pubbliche o non affidabili.
+**Note**: This software is designed for use on trusted local networks. Use appropriate security tools for public or untrusted networks.
