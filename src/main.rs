@@ -14,10 +14,10 @@ use chrono::Local;
 use std::sync::atomic::{AtomicBool, Ordering};
 use dirs;
 
-/// Tipo personalizzato per gestione errori
+/// Custom type for error handling
 type AppResult<T> = Result<T, Box<dyn std::error::Error>>;
 
-/// Configurazione persistente dell'app
+/// Persistent application configuration
 #[derive(Serialize, Deserialize, Clone)]
 struct AppConfig {
     last_server_port: String,
@@ -45,7 +45,7 @@ impl Default for AppConfig {
     }
 }
 
-/// File condiviso
+/// Shared file
 #[derive(Clone)]
 struct SharedFile {
     name: String,
@@ -55,7 +55,7 @@ struct SharedFile {
     is_archive: bool,
 }
 
-/// Stato del trasferimento
+/// Transfer status
 #[derive(Clone, PartialEq)]
 enum TransferState {
     Queued,
@@ -64,10 +64,10 @@ enum TransferState {
     Completed,
     Cancelled,
     Error(String),
-    Extracting(f32), // Ora include il progresso dell'estrazione
+    Extracting(f32), // Now includes extraction progress
 }
 
-/// Trasferimento
+/// Transfer
 #[derive(Clone)]
 struct Transfer {
     filename: String,
@@ -79,10 +79,10 @@ struct Transfer {
     start_time: std::time::Instant,
     is_archive: bool,
     extracted_files: Vec<String>,
-    extract_progress: f32, // Progresso separato per l'estrazione
+    extract_progress: f32, // Separate progress for extraction
 }
 
-/// Modalità app
+/// Application mode
 #[derive(PartialEq)]
 enum AppMode {
     Share,
@@ -93,7 +93,7 @@ impl Default for AppMode {
     fn default() -> Self { AppMode::Share }
 }
 
-/// App principale
+/// Main application
 struct FileTransferApp {
     mode: AppMode,
     config: AppConfig,
@@ -131,7 +131,7 @@ impl Default for FileTransferApp {
             config: config.clone(),
 
             server_port: config.last_server_port,
-            server_status: Arc::new(Mutex::new("Server fermo".to_string())),
+            server_status: Arc::new(Mutex::new("Server stopped".to_string())),
             server_running: Arc::new(AtomicBool::new(false)),
             server_password: String::new(),
             server_encryption_enabled: config.encryption_enabled,
@@ -154,15 +154,15 @@ impl Default for FileTransferApp {
     }
 }
 
-// --- Costanti e helper functions ---
+// --- Constants and helper functions ---
 const MAX_FILE_SIZE: u64 = 10 * 1024 * 1024 * 1024; // 10GB
 const TRANSFER_TIMEOUT: Duration = Duration::from_secs(60);
 const BUFFER_SIZE: usize = 64 * 1024; // 64KB
 
-/// Estensioni supportate per archivi
+/// Supported archive extensions
 const ARCHIVE_EXTENSIONS: &[&str] = &["zip", "rar", "7z", "tar", "gz", "bz2"];
 
-/// Ottiene la directory dell'applicazione (stessa per downloads, config e log)
+/// Gets the application directory (same for downloads, config and logs)
 fn get_app_data_dir() -> Option<PathBuf> {
     dirs::data_local_dir().map(|mut path| {
         path.push("LanBeam");
@@ -170,7 +170,7 @@ fn get_app_data_dir() -> Option<PathBuf> {
     })
 }
 
-/// Log eventi
+/// Log events
 fn log_event(message: &str) {
     println!("{}", message);
     if let Some(app_dir) = get_app_data_dir() {
@@ -185,25 +185,25 @@ fn log_event(message: &str) {
     }
 }
 
-/// Gestione errori IO
+/// IO error handling
 fn handle_io_error(e: std::io::Error, context: &str) -> std::io::Error {
-    let error_msg = format!("Errore IO in {}: {}", context, e);
+    let error_msg = format!("IO error in {}: {}", context, e);
     log_event(&error_msg);
     std::io::Error::new(e.kind(), error_msg)
 }
 
-/// Scrittura su socket con gestione errori non-bloccanti
+/// Write to socket with non-blocking error handling
 fn write_all_with_retry(stream: &mut TcpStream, data: &[u8], cancel_flag: &AtomicBool) -> std::io::Result<()> {
     let mut total_written = 0;
     
     while total_written < data.len() {
         if cancel_flag.load(Ordering::SeqCst) {
-            return Err(std::io::Error::new(ErrorKind::Interrupted, "Operazione annullata"));
+            return Err(std::io::Error::new(ErrorKind::Interrupted, "Operation cancelled"));
         }
         
         match stream.write(&data[total_written..]) {
             Ok(0) => {
-                return Err(std::io::Error::new(ErrorKind::WriteZero, "Scrittura di 0 byte"));
+                return Err(std::io::Error::new(ErrorKind::WriteZero, "Wrote 0 bytes"));
             }
             Ok(n) => {
                 total_written += n;
@@ -224,18 +224,18 @@ fn write_all_with_retry(stream: &mut TcpStream, data: &[u8], cancel_flag: &Atomi
     Ok(())
 }
 
-/// Lettura da socket con gestione errori non-bloccanti
+/// Read from socket with non-blocking error handling
 fn read_exact_with_retry(stream: &mut TcpStream, buf: &mut [u8], cancel_flag: &AtomicBool) -> std::io::Result<()> {
     let mut total_read = 0;
     
     while total_read < buf.len() {
         if cancel_flag.load(Ordering::SeqCst) {
-            return Err(std::io::Error::new(ErrorKind::Interrupted, "Operazione annullata"));
+            return Err(std::io::Error::new(ErrorKind::Interrupted, "Operation cancelled"));
         }
         
         match stream.read(&mut buf[total_read..]) {
             Ok(0) => {
-                return Err(std::io::Error::new(ErrorKind::UnexpectedEof, "Connessione chiusa"));
+                return Err(std::io::Error::new(ErrorKind::UnexpectedEof, "Connection closed"));
             }
             Ok(n) => {
                 total_read += n;
@@ -256,7 +256,7 @@ fn read_exact_with_retry(stream: &mut TcpStream, buf: &mut [u8], cancel_flag: &A
     Ok(())
 }
 
-/// Icona per stato trasferimento
+/// Icon for transfer status
 fn state_icon(state: &TransferState) -> &'static str {
     match state {
         TransferState::Queued => "⏳",
@@ -269,7 +269,7 @@ fn state_icon(state: &TransferState) -> &'static str {
     }
 }
 
-/// Abbrevia nome file
+/// Abbreviate filename
 fn abbreviate_filename(name: &str, max_len: usize) -> String {
     if name.len() <= max_len {
         name.to_string()
@@ -279,7 +279,7 @@ fn abbreviate_filename(name: &str, max_len: usize) -> String {
     }
 }
 
-/// Formatta dimensione file
+/// Format file size
 fn format_file_size(size: u64) -> String {
     const KB: f64 = 1024.0;
     const MB: f64 = KB * 1024.0;
@@ -298,7 +298,7 @@ fn format_file_size(size: u64) -> String {
     }
 }
 
-/// Calcola velocità trasferimento
+/// Calculate transfer speed
 fn format_transfer_speed(bytes_per_sec: f64) -> String {
     const KB: f64 = 1024.0;
     const MB: f64 = KB * 1024.0;
@@ -312,16 +312,16 @@ fn format_transfer_speed(bytes_per_sec: f64) -> String {
     }
 }
 
-/// Controlla dimensione file
+/// Check file size
 fn check_file_size(size: u64) -> Result<(), String> {
     if size > MAX_FILE_SIZE {
-        Err(format!("File troppo grande (max {} GB)", MAX_FILE_SIZE / 1024 / 1024 / 1024))
+        Err(format!("File too large (max {} GB)", MAX_FILE_SIZE / 1024 / 1024 / 1024))
     } else {
         Ok(())
     }
 }
 
-/// Verifica se un file è un archivio
+/// Check if a file is an archive
 fn is_archive_file(filename: &str) -> bool {
     if let Some(ext) = Path::new(filename).extension() {
         let ext_str = ext.to_string_lossy().to_lowercase();
@@ -331,7 +331,7 @@ fn is_archive_file(filename: &str) -> bool {
     }
 }
 
-/// Estrai archivio ZIP con progresso
+/// Extract ZIP archive with progress
 fn extract_zip_file_with_progress(
     zip_path: &Path, 
     extract_to: &Path, 
@@ -362,16 +362,16 @@ fn extract_zip_file_with_progress(
         processed_files += 1;
         let progress = (processed_files as f32 / total_files as f32) * 100.0;
         
-        // Chiama il callback e controlla se continuare
+        // Call the callback and check if we should continue
         if !progress_callback(progress) {
-            return Err(std::io::Error::new(ErrorKind::Interrupted, "Estrazione annullata").into());
+            return Err(std::io::Error::new(ErrorKind::Interrupted, "Extraction cancelled").into());
         }
     }
     
     Ok(extracted_files)
 }
 
-/// Crittografia
+/// Encryption
 fn encrypt_data(data: &[u8], password: &str) -> AppResult<Vec<u8>> {
     if password.is_empty() {
         return Ok(data.to_vec());
@@ -406,26 +406,26 @@ fn xor_encrypt_decrypt(data: &[u8], key: &str) -> Vec<u8> {
         .collect()
 }
 
-/// Connessione con timeout
+/// Connection with timeout
 fn connect_with_timeout(addr: &str, timeout: Duration) -> std::io::Result<TcpStream> {
     TcpStream::connect_timeout(&addr.parse().unwrap(), timeout)
 }
 
-/// Ottiene IP locale
+/// Get local IP
 fn get_local_ip() -> Result<String, std::io::Error> {
     let udp_socket = std::net::UdpSocket::bind("0.0.0.0:0")?;
     if udp_socket.connect("8.8.8.8:80").is_err() {
-        return Ok("nessuna rete".to_string());
+        return Ok("no network".to_string());
     }
     let ip = udp_socket.local_addr()?.ip().to_string();
     if ip == "0.0.0.0" || ip == "::" {
-        Ok("nessuna rete".to_string())
+        Ok("no network".to_string())
     } else {
         Ok(ip)
     }
 }
 
-/// Raccoglie file ricorsivamente
+/// Collect files recursively
 fn collect_files_recursive(base: &Path, current: &Path, out: &mut Vec<(String, PathBuf, u64)>) -> std::io::Result<()> {
     for entry in std::fs::read_dir(current)? {
         let entry = entry?;
@@ -435,7 +435,7 @@ fn collect_files_recursive(base: &Path, current: &Path, out: &mut Vec<(String, P
             collect_files_recursive(base, &path, out)?;
         } else if metadata.is_file() {
             if let Err(e) = check_file_size(metadata.len()) {
-                log_event(&format!("File saltato {}: {}", path.display(), e));
+                log_event(&format!("File skipped {}: {}", path.display(), e));
                 continue;
             }
             
@@ -448,7 +448,7 @@ fn collect_files_recursive(base: &Path, current: &Path, out: &mut Vec<(String, P
     Ok(())
 }
 
-// --- Implementazione App ---
+// --- App Implementation ---
 impl FileTransferApp {
     fn load_config() -> AppResult<AppConfig> {
         if let Some(app_dir) = get_app_data_dir() {
@@ -486,7 +486,7 @@ impl FileTransferApp {
     fn show_errors(&self, ctx: &egui::Context) {
         let mut errors = self.errors.lock().unwrap();
         if !errors.is_empty() {
-            egui::Window::new("Errori")
+            egui::Window::new("Errors")
                 .collapsible(true)
                 .resizable(true)
                 .default_width(400.0)
@@ -495,7 +495,7 @@ impl FileTransferApp {
                         ui.label(error);
                     }
                     ui.separator();
-                    if ui.button("Pulisci Errori").clicked() {
+                    if ui.button("Clear Errors").clicked() {
                         errors.clear();
                     }
                 });
@@ -521,7 +521,7 @@ impl FileTransferApp {
                     is_archive,
                 };
                 self.server_shared_files.lock().unwrap().push(file);
-                log_event(&format!("File aggiunto: {} {}", path.display(), if is_archive { "(archivio)" } else { "" }));
+                log_event(&format!("File added: {} {}", path.display(), if is_archive { "(archive)" } else { "" }));
             }
         }
     }
@@ -531,7 +531,7 @@ impl FileTransferApp {
             let base = folder.clone();
             let mut collected = Vec::new();
             if let Err(e) = collect_files_recursive(&base, &base, &mut collected) {
-                self.add_error(format!("Errore lettura cartella: {}", e));
+                self.add_error(format!("Error reading folder: {}", e));
                 return;
             }
             
@@ -549,7 +549,7 @@ impl FileTransferApp {
                     is_archive,
                 });
             }
-            log_event(&format!("Cartella aggiunta: {} ({} file)", folder.display(), list.len()));
+            log_event(&format!("Folder added: {} ({} files)", folder.display(), list.len()));
         }
     }
 
@@ -565,7 +565,7 @@ impl FileTransferApp {
 
         running.store(true, Ordering::SeqCst);
         *status.lock().unwrap() = format!(
-            "Server in ascolto sulla porta {} {}",
+            "Server listening on port {} {}",
             port,
             if password.is_some() { "🔒" } else { "" }
         );
@@ -577,7 +577,7 @@ impl FileTransferApp {
                 while running.load(Ordering::SeqCst) {
                     match listener.accept() {
                         Ok((stream, addr)) => {
-                            log_event(&format!("Nuova connessione da {}", addr));
+                            log_event(&format!("New connection from {}", addr));
                             
                             let status_clone = Arc::clone(&status);
                             let files_clone = Arc::clone(&shared_files);
@@ -586,7 +586,7 @@ impl FileTransferApp {
 
                             thread::spawn(move || {
                                 if let Err(e) = handle_client(stream, status_clone, files_clone, transfers_clone, pwd) {
-                                    log_event(&format!("Errore gestione client: {}", e));
+                                    log_event(&format!("Error handling client: {}", e));
                                 }
                             });
                         },
@@ -594,16 +594,16 @@ impl FileTransferApp {
                             thread::sleep(Duration::from_millis(100));
                         },
                         Err(e) => {
-                            log_event(&format!("Errore accettazione connessione: {}", e));
+                            log_event(&format!("Error accepting connection: {}", e));
                         }
                     }
                 }
             } else {
-                *status.lock().unwrap() = format!("Impossibile avviare il server sulla porta {}", port);
+                *status.lock().unwrap() = format!("Unable to start server on port {}", port);
             }
         });
         
-        log_event(&format!("Server avviato sulla porta {}", port));
+        log_event(&format!("Server started on port {}", port));
     }
 
     fn stop_server(&mut self) {
@@ -617,8 +617,8 @@ impl FileTransferApp {
         drop(transfers);
 
         self.server_running.store(false, Ordering::SeqCst);
-        *self.server_status.lock().unwrap() = "Server fermato".to_string();
-        log_event("Server fermato");
+        *self.server_status.lock().unwrap() = "Server stopped".to_string();
+        log_event("Server stopped");
     }
 
     fn request_file_list(&mut self) {
@@ -627,13 +627,13 @@ impl FileTransferApp {
         let available = Arc::clone(&self.client_available_files);
         let error_handler = Arc::clone(&self.errors);
 
-        self.client_status = "Richiesta lista file...".to_string();
+        self.client_status = "Requesting file list...".to_string();
 
         thread::spawn(move || {
             match connect_with_timeout(&format!("{}:{}", ip, port), TRANSFER_TIMEOUT) {
                 Ok(mut stream) => {
                     if let Err(e) = stream.set_nonblocking(false) {
-                        error_handler.lock().unwrap().push(format!("Errore configurazione socket: {}", e));
+                        error_handler.lock().unwrap().push(format!("Socket configuration error: {}", e));
                         return;
                     }
                     
@@ -642,12 +642,12 @@ impl FileTransferApp {
                             *available.lock().unwrap() = files;
                         },
                         Err(e) => {
-                            error_handler.lock().unwrap().push(format!("Errore recupero lista: {}", e));
+                            error_handler.lock().unwrap().push(format!("Error retrieving list: {}", e));
                         }
                     }
                 },
                 Err(e) => {
-                    error_handler.lock().unwrap().push(format!("Connessione fallita: {}", e));
+                    error_handler.lock().unwrap().push(format!("Connection failed: {}", e));
                 }
             }
         });
@@ -655,14 +655,14 @@ impl FileTransferApp {
 
     fn download_file(&mut self, filename: String) {
         if self.client_encryption_enabled && self.client_password.is_empty() {
-            self.client_status = "Errore: inserisci una password".to_string();
+            self.client_status = "Error: enter a password".to_string();
             return;
         }
 
         let mut file_path = PathBuf::from(&self.config.download_folder).join(&filename);
 		file_path.push("downloads");
         if file_path.exists() {
-            self.client_status = format!("File {} già presente", filename);
+            self.client_status = format!("File {} already present", filename);
             return;
         }
 
@@ -702,7 +702,7 @@ impl FileTransferApp {
             self.process_download_queue();
         }
         
-        log_event(&format!("File aggiunto alla coda: {} {}", filename, if is_archive { "(archivio)" } else { "" }));
+        log_event(&format!("File added to queue: {} {}", filename, if is_archive { "(archive)" } else { "" }));
     }
 
     fn process_download_queue(&mut self) {
@@ -756,7 +756,7 @@ impl FileTransferApp {
                                         t.extract_progress = 100.0;
                                     }
                                 }
-                                log_event(&format!("Download completato: {}", filename));
+                                log_event(&format!("Download completed: {}", filename));
                             },
                             Err(e) => {
                                 if let Some(t) = transfers.lock().unwrap().get_mut(idx) {
@@ -764,7 +764,7 @@ impl FileTransferApp {
                                         t.state = TransferState::Error(e.to_string());
                                     }
                                 }
-                                errors.lock().unwrap().push(format!("Errore download {}: {}", filename, e));
+                                errors.lock().unwrap().push(format!("Download error {}: {}", filename, e));
                             }
                         }
                     }
@@ -851,7 +851,7 @@ impl FileTransferApp {
             let transferred = (transfer.progress / 100.0) * transfer.size as f32;
             format_transfer_speed(transferred as f64 / elapsed)
         } else {
-            "Calcolo...".to_string()
+            "Calculating...".to_string()
         }
     }
 
@@ -859,21 +859,21 @@ impl FileTransferApp {
         let mut path = PathBuf::from(&self.config.download_folder);
 		path.push("downloads");
         
-        // Se il percorso non esiste, prova a crearlo
+        // If the path doesn't exist, try to create it
         if !path.exists() {
             if let Err(e) = create_dir_all(&path) {
-                self.add_error(format!("Impossibile creare la cartella: {}", e));
+                self.add_error(format!("Unable to create folder: {}", e));
                 return;
             }
         }
         
         if let Err(e) = open::that(&path) {
-            self.add_error(format!("Impossibile aprire la cartella: {}", e));
+            self.add_error(format!("Unable to open folder: {}", e));
         }
     }
 }
 
-// --- Gestione client/server ---
+// --- Client/server handling ---
 fn handle_client(
     mut stream: TcpStream,
     status: Arc<Mutex<String>>,
@@ -882,7 +882,7 @@ fn handle_client(
     password: Option<String>,
 ) -> std::io::Result<()> {
     let peer = stream.peer_addr()?;
-    *status.lock().unwrap() = format!("Connessione da {}...", peer);
+    *status.lock().unwrap() = format!("Connection from {}...", peer);
 
     stream.set_read_timeout(Some(Duration::from_secs(30)))?;
     stream.set_write_timeout(Some(Duration::from_secs(30)))?;
@@ -914,7 +914,7 @@ fn handle_client(
         }
         
         stream.flush()?;
-        *status.lock().unwrap() = format!("Inviata lista a {}", peer);
+        *status.lock().unwrap() = format!("Sent list to {}", peer);
         return Ok(());
     }
 
@@ -971,7 +971,7 @@ fn handle_client(
         let mut buffer = vec![0u8; BUFFER_SIZE];
         let mut sent: u64 = 0;
 
-        log_event(&format!("Invio file iniziato: {} ({} bytes) a {}", requested, file_info.size, peer));
+        log_event(&format!("File sending started: {} ({} bytes) to {}", requested, file_info.size, peer));
 
         while sent < file_info.size {
             if cancel_flag.load(Ordering::SeqCst) {
@@ -992,7 +992,7 @@ fn handle_client(
                 Ok(0) => break,
                 Ok(n) => n,
                 Err(e) => {
-                    log_event(&format!("Errore lettura file: {}", e));
+                    log_event(&format!("Error reading file: {}", e));
                     break;
                 }
             };
@@ -1008,7 +1008,7 @@ fn handle_client(
             };
 
             if let Err(e) = write_all_with_retry(&mut stream, &data, &cancel_flag) {
-                log_event(&format!("Errore invio dati: {}", e));
+                log_event(&format!("Error sending data: {}", e));
                 break;
             }
             
@@ -1021,7 +1021,7 @@ fn handle_client(
                 if progress_percent % 10 == 0 && progress_percent > 0 {
                     let last_logged = (t.progress as u64 / 10) * 10;
                     if progress_percent > last_logged {
-                        log_event(&format!("Progresso {}: {}/{} bytes ({:.1}%)", 
+                        log_event(&format!("Progress {}: {}/{} bytes ({:.1}%)", 
                             requested, sent, file_info.size, t.progress));
                     }
                 }
@@ -1038,14 +1038,14 @@ fn handle_client(
             } else if sent == file_info.size {
                 t.state = TransferState::Completed;
                 t.progress = 100.0;
-                log_event(&format!("File inviato completato: {} ({} bytes)", requested, sent));
+                log_event(&format!("File sending completed: {} ({} bytes)", requested, sent));
             } else {
-                t.state = TransferState::Error("Trasferimento incompleto".to_string());
-                log_event(&format!("File inviato incompleto: {} ({}/{} bytes)", requested, sent, file_info.size));
+                t.state = TransferState::Error("Transfer incomplete".to_string());
+                log_event(&format!("File sending incomplete: {} ({}/{} bytes)", requested, sent, file_info.size));
             }
         }
 
-        *status.lock().unwrap() = format!("Inviato {} a {} ({}/{})", requested, peer, sent, file_info.size);
+        *status.lock().unwrap() = format!("Sent {} to {} ({}/{})", requested, peer, sent, file_info.size);
     }
 
     Ok(())
@@ -1109,10 +1109,10 @@ fn download_file_from_server(
     let status_str = String::from_utf8_lossy(&status_buf);
     
     if status_str.starts_with("NOTFOUND") {
-        return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "File non trovato"));
+        return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "File not found"));
     }
     if status_str.starts_with("NEEDPASS") {
-        return Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "Password richiesta"));
+        return Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "Password required"));
     }
 
     let mut size_buf = [0u8; 8];
@@ -1143,20 +1143,20 @@ fn download_file_from_server(
     let mut received: u64 = 0;
     let mut buffer = vec![0u8; BUFFER_SIZE];
 
-    log_event(&format!("Download iniziato: {} ({} bytes)", filename, total_size));
+    log_event(&format!("Download started: {} ({} bytes)", filename, total_size));
 
     while received < total_size {
         if cancel_flag.load(Ordering::SeqCst) {
             drop(out_file);
             let _ = std::fs::remove_file(&file_path);
-            return Err(std::io::Error::new(std::io::ErrorKind::Interrupted, "Download annullato"));
+            return Err(std::io::Error::new(std::io::ErrorKind::Interrupted, "Download cancelled"));
         }
 
         while pause_flag.load(Ordering::SeqCst) {
             if cancel_flag.load(Ordering::SeqCst) {
                 drop(out_file);
                 let _ = std::fs::remove_file(&file_path);
-                return Err(std::io::Error::new(std::io::ErrorKind::Interrupted, "Download annullato"));
+                return Err(std::io::Error::new(std::io::ErrorKind::Interrupted, "Download cancelled"));
             }
             thread::sleep(Duration::from_millis(100));
         }
@@ -1174,7 +1174,7 @@ fn download_file_from_server(
             Err(e) if e.kind() == ErrorKind::Interrupted => {
                 continue;
             }
-            Err(e) => return Err(handle_io_error(e, "lettura da socket")),
+            Err(e) => return Err(handle_io_error(e, "reading from socket")),
         };
 
         if bytes_read == 0 {
@@ -1188,7 +1188,7 @@ fn download_file_from_server(
         };
 
         out_file.write_all(&data)
-            .map_err(|e| handle_io_error(e, "scrittura su file"))?;
+            .map_err(|e| handle_io_error(e, "writing to file"))?;
         
         received += bytes_read as u64;
 
@@ -1199,7 +1199,7 @@ fn download_file_from_server(
             if progress_percent % 10 == 0 && progress_percent > 0 {
                 let last_logged = (t.progress as u64 / 10) * 10;
                 if progress_percent > last_logged {
-                    log_event(&format!("Progresso {}: {}/{} bytes ({:.1}%)", 
+                    log_event(&format!("Progress {}: {}/{} bytes ({:.1}%)", 
                         filename, received, total_size, t.progress));
                 }
             }
@@ -1211,14 +1211,14 @@ fn download_file_from_server(
     out_file.sync_all()?;
 
     if received != total_size {
-        let error_msg = format!("File incompleto: ricevuti {}/{} bytes", received, total_size);
+        let error_msg = format!("File incomplete: received {}/{} bytes", received, total_size);
         log_event(&error_msg);
         return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, error_msg));
     }
 
     let mut extracted_files = Vec::new();
 
-    // Estrazione automatica degli archivi ZIP con progresso
+    // Automatic ZIP archive extraction with progress
     if auto_extract && filename.to_lowercase().ends_with(".zip") {
         {
             let mut transfers_lock = transfers.lock().unwrap();
@@ -1228,22 +1228,22 @@ fn download_file_from_server(
             }
         }
 
-        log_event(&format!("Estrazione archivio: {}", filename));
+        log_event(&format!("Extracting archive: {}", filename));
         
         let extract_dir = file_path.with_extension("");
         
-        // Estrai con callback di progresso
+        // Extract with progress callback
         let cancel_flag_clone = Arc::clone(&cancel_flag);
         let transfers_clone = Arc::clone(&transfers);
         let idx = transfer_idx;
         
         match extract_zip_file_with_progress(&file_path, &extract_dir, |progress| {
-            // Controlla cancellazione
+            // Check for cancellation
             if cancel_flag_clone.load(Ordering::SeqCst) {
                 return false;
             }
             
-            // Aggiorna il progresso nell'interfaccia
+            // Update progress in the UI
             if let Some(t) = transfers_clone.lock().unwrap().get_mut(idx) {
                 t.state = TransferState::Extracting(progress);
                 t.extract_progress = progress;
@@ -1253,18 +1253,18 @@ fn download_file_from_server(
         }) {
             Ok(files) => {
                 extracted_files = files;
-                log_event(&format!("Archivio estratto: {} file creati", extracted_files.len()));
+                log_event(&format!("Archive extracted: {} files created", extracted_files.len()));
             },
             Err(e) => {
-                log_event(&format!("Errore estrazione archivio: {}", e));
+                log_event(&format!("Archive extraction error: {}", e));
                 if cancel_flag.load(Ordering::SeqCst) {
-                    return Err(std::io::Error::new(ErrorKind::Interrupted, "Estrazione annullata"));
+                    return Err(std::io::Error::new(ErrorKind::Interrupted, "Extraction cancelled"));
                 }
             }
         }
     }
 
-    log_event(&format!("Download completato: {} ({} bytes)", filename, received));
+    log_event(&format!("Download completed: {} ({} bytes)", filename, received));
     Ok(extracted_files)
 }
 
@@ -1275,8 +1275,8 @@ impl eframe::App for FileTransferApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.horizontal(|ui| {
-                ui.selectable_value(&mut self.mode, AppMode::Share, "📤 Condividi");
-                ui.selectable_value(&mut self.mode, AppMode::Download, "📥 Scarica");
+                ui.selectable_value(&mut self.mode, AppMode::Share, "📤 Share");
+                ui.selectable_value(&mut self.mode, AppMode::Download, "📥 Download");
             });
 
             ui.separator();
@@ -1285,16 +1285,16 @@ impl eframe::App for FileTransferApp {
             match self.mode {
                 AppMode::Share => {
                     if let Ok(local_ip) = get_local_ip() {
-                        ui.label(format!("Il tuo IP: {}", local_ip));
+                        ui.label(format!("Your IP: {}", local_ip));
                     }
 
                     ui.horizontal(|ui| {
-                        ui.label("Porta:");
+                        ui.label("Port:");
                         ui.text_edit_singleline(&mut self.server_port);
                     });
 
                     ui.add_space(10.0);
-                    ui.checkbox(&mut self.server_encryption_enabled, "Crittografia");
+                    ui.checkbox(&mut self.server_encryption_enabled, "Encryption");
 
                     if self.server_encryption_enabled {
                         ui.horizontal(|ui| {
@@ -1305,17 +1305,17 @@ impl eframe::App for FileTransferApp {
 
                     ui.add_space(10.0);
                     ui.horizontal(|ui| {
-                        if ui.button("Aggiungi File").clicked() {
+                        if ui.button("Add File").clicked() {
                             self.add_file_to_share();
                         }
-                        if ui.button("Aggiungi Cartella").clicked() {
+                        if ui.button("Add Folder").clicked() {
                             self.add_folder_to_share();
                         }
                     });
 
                     ui.add_space(10.0);
                     ui.separator();
-                    ui.heading("File Condivisi:");
+                    ui.heading("Shared Files:");
 
                     egui::ScrollArea::vertical()
                         .id_source("shared_files_scroll")
@@ -1324,7 +1324,7 @@ impl eframe::App for FileTransferApp {
                         let mut to_remove = None;
                         let files = self.server_shared_files.lock().unwrap();
                         if files.is_empty() {
-                            ui.label("Nessun file condiviso");
+                            ui.label("No files shared");
                         } else {
                             for (i, file) in files.iter().enumerate() {
                                 ui.horizontal(|ui| {
@@ -1355,25 +1355,25 @@ impl eframe::App for FileTransferApp {
                         if !is_running {
                             let has_files = !self.server_shared_files.lock().unwrap().is_empty();
                             let can_start = has_files && (!self.server_encryption_enabled || !self.server_password.is_empty());
-                            if ui.add_enabled(can_start, egui::Button::new("Avvia Server")).clicked() {
+                            if ui.add_enabled(can_start, egui::Button::new("Start Server")).clicked() {
                                 self.start_server();
                             }
                             if !has_files { 
-                                ui.label("Aggiungi almeno un file"); 
+                                ui.label("Add at least one file"); 
                             }
                         } else {
-                            if ui.button("Ferma Server").clicked() {
+                            if ui.button("Stop Server").clicked() {
                                 self.stop_server();
                             }
                         }
                     });
 
                     ui.add_space(10.0);
-                    ui.label(format!("Stato: {}", self.server_status.lock().unwrap()));
+                    ui.label(format!("Status: {}", self.server_status.lock().unwrap()));
 
                     ui.add_space(10.0);
                     ui.separator();
-                    ui.heading("Trasferimenti Attivi:");
+                    ui.heading("Active Transfers:");
 
                     let mut actions = Vec::new();
                     egui::ScrollArea::vertical()
@@ -1382,7 +1382,7 @@ impl eframe::App for FileTransferApp {
                         .show(ui, |ui| {
                             let transfers = self.server_transfers.lock().unwrap();
                             if transfers.is_empty() {
-                                ui.label("Nessun trasferimento attivo");
+                                ui.label("No active transfers");
                             } else {
                                 for (idx, transfer) in transfers.iter().enumerate() {
                                     ui.horizontal(|ui| {
@@ -1404,7 +1404,7 @@ impl eframe::App for FileTransferApp {
                                                 }
                                             },
                                             TransferState::Paused => {
-                                                ui.label("⏸ In pausa");
+                                                ui.label("⏸ Paused");
                                                 if ui.small_button("▶").clicked() {
                                                     actions.push(("resume", idx));
                                                 }
@@ -1413,20 +1413,20 @@ impl eframe::App for FileTransferApp {
                                                 }
                                             },
                                             TransferState::Completed => {
-                                                ui.label("✓ Completato");
+                                                ui.label("✓ Completed");
                                             },
                                             TransferState::Cancelled => {
-                                                ui.label("❌ Annullato");
+                                                ui.label("❌ Cancelled");
                                             },
                                             TransferState::Error(e) => {
                                                 ui.label(format!("⚠ {}", abbreviate_filename(e, 30)));
                                             },
                                             TransferState::Queued => {
-                                                ui.label("⏳ In coda");
+                                                ui.label("⏳ Queued");
                                             },
                                             TransferState::Extracting(progress) => {
                                                 ui.add(egui::ProgressBar::new(*progress / 100.0)
-                                                    .text(format!("Estrazione: {:.1}%", progress)));
+                                                    .text(format!("Extracting: {:.1}%", progress)));
                                                 if ui.small_button("❌").clicked() {
                                                     actions.push(("cancel", idx));
                                                 }
@@ -1446,7 +1446,7 @@ impl eframe::App for FileTransferApp {
                         }
                     }
 
-                    if ui.button("Pulisci Completati").clicked() {
+                    if ui.button("Clear Completed").clicked() {
                         self.clear_completed_transfers(true);
                     }
                 }
@@ -1457,12 +1457,12 @@ impl eframe::App for FileTransferApp {
                         ui.text_edit_singleline(&mut self.client_ip);
                     });
                     ui.horizontal(|ui| {
-                        ui.label("Porta: ");
+                        ui.label("Port: ");
                         ui.text_edit_singleline(&mut self.client_port);
                     });
 
                     ui.add_space(10.0);
-                    ui.checkbox(&mut self.client_encryption_enabled, "Crittografia");
+                    ui.checkbox(&mut self.client_encryption_enabled, "Encryption");
                     if self.client_encryption_enabled {
                         ui.horizontal(|ui| {
                             ui.label("Password:");
@@ -1471,24 +1471,24 @@ impl eframe::App for FileTransferApp {
                     }
 
                     ui.add_space(10.0);
-                    ui.checkbox(&mut self.auto_extract_zip, "Estrai automaticamente archivi ZIP");
+                    ui.checkbox(&mut self.auto_extract_zip, "Auto-extract ZIP archives");
 
                     ui.add_space(10.0);
                     ui.horizontal(|ui| {
-                        if ui.button("🔍 Cerca File").clicked() {
+                        if ui.button("🔍 Search Files").clicked() {
                             self.request_file_list();
                         }
-                        if ui.button("Scarica Tutti").clicked() {
+                        if ui.button("Download All").clicked() {
                             self.download_all_files();
                         }
-                        if ui.button("📁 Cartella Download").clicked() {
+                        if ui.button("📁 Download Folder").clicked() {
                             self.open_download_folder();
                         }
                     });
 
                     ui.add_space(10.0);
                     ui.separator();
-                    ui.heading("File Disponibili:");
+                    ui.heading("Available Files:");
 
                     let files_to_download: Vec<String> = {
                         let files = self.client_available_files.lock().unwrap();
@@ -1499,7 +1499,7 @@ impl eframe::App for FileTransferApp {
                             .max_height(120.0)
                             .show(ui, |ui| {
                                 if files.is_empty() {
-                                    ui.label("Nessun file disponibile. Connettiti a un server.");
+                                    ui.label("No files available. Connect to a server.");
                                 } else {
                                     for file in files.iter() {
                                         ui.horizontal(|ui| {
@@ -1510,7 +1510,7 @@ impl eframe::App for FileTransferApp {
                                                 if file.encrypted { "🔒" } else { "" },
                                                 format_file_size(file.size)
                                             )).on_hover_text(&file.name);
-                                            if ui.button("Scarica").clicked() {
+                                            if ui.button("Download").clicked() {
                                                 to_download.push(file.name.clone());
                                             }
                                         });
@@ -1526,7 +1526,7 @@ impl eframe::App for FileTransferApp {
 
                     ui.add_space(10.0);
                     ui.separator();
-                    ui.heading("Download:");
+                    ui.heading("Downloads:");
 
                     let mut actions = Vec::new();
                     egui::ScrollArea::vertical()
@@ -1535,7 +1535,7 @@ impl eframe::App for FileTransferApp {
                         .show(ui, |ui| {
                             let transfers = self.client_transfers.lock().unwrap();
                             if transfers.is_empty() {
-                                ui.label("Nessun download attivo");
+                                ui.label("No active downloads");
                             } else {
                                 for (idx, transfer) in transfers.iter().enumerate() {
                                     ui.horizontal(|ui| {
@@ -1547,7 +1547,7 @@ impl eframe::App for FileTransferApp {
 
                                         match &transfer.state {
                                             TransferState::Queued => {
-                                                ui.label(format!("⏳ In coda ({})", format_file_size(transfer.size)));
+                                                ui.label(format!("⏳ Queued ({})", format_file_size(transfer.size)));
                                                 if ui.small_button("❌").clicked() {
                                                     actions.push(("cancel", idx));
                                                 }
@@ -1564,7 +1564,7 @@ impl eframe::App for FileTransferApp {
                                                 }
                                             },
                                             TransferState::Paused => {
-                                                ui.label("⏸ In pausa");
+                                                ui.label("⏸ Paused");
                                                 if ui.small_button("▶").clicked() {
                                                     actions.push(("resume", idx));
                                                 }
@@ -1573,21 +1573,21 @@ impl eframe::App for FileTransferApp {
                                                 }
                                             },
                                             TransferState::Completed => {
-                                                ui.label("✓ Completato");
+                                                ui.label("✓ Completed");
                                                 if transfer.is_archive && !transfer.extracted_files.is_empty() {
-                                                    ui.label(format!(" ({} file estratti)", transfer.extracted_files.len()));
+                                                    ui.label(format!(" ({} files extracted)", transfer.extracted_files.len()));
                                                 }
                                             },
                                             TransferState::Cancelled => {
-                                                ui.label("❌ Annullato");
+                                                ui.label("❌ Cancelled");
                                             },
                                             TransferState::Error(_) => {
-                                                ui.label("⚠ Errore");
+                                                ui.label("⚠ Error");
                                             },
                                             TransferState::Extracting(progress) => {
                                                 ui.add(egui::ProgressBar::new(*progress / 100.0)
                                                     .desired_width(100.0)
-                                                    .text(format!("Estrazione: {:.1}%", progress)));
+                                                    .text(format!("Extracting: {:.1}%", progress)));
                                                 if ui.small_button("❌").clicked() {
                                                     actions.push(("cancel", idx));
                                                 }
@@ -1615,20 +1615,20 @@ impl eframe::App for FileTransferApp {
                         }
                     }
 
-                    if ui.button("Pulisci Completati").clicked() {
+                    if ui.button("Clear Completed").clicked() {
                         self.clear_completed_transfers(false);
                     }
 
                     ui.add_space(10.0);
                     ui.separator();
-                    ui.heading("File Scaricati:");
+                    ui.heading("Downloaded Files:");
                     egui::ScrollArea::vertical()
                         .id_source("downloaded_files_scroll")
                         .max_height(80.0)
                         .show(ui, |ui| {
                             let received = self.received_files.lock().unwrap();
                             if received.is_empty() {
-                                ui.label("Nessun file scaricato ancora");
+                                ui.label("No files downloaded yet");
                             } else {
                                 for file in received.iter() {
                                     ui.label(format!("✓ {}", abbreviate_filename(file, 30)))
@@ -1649,7 +1649,7 @@ impl eframe::App for FileTransferApp {
 }
 
 fn main() -> Result<(), eframe::Error> {
-    // Crea le directory necessarie all'avvio
+    // Create necessary directories on startup
     if let Some(app_dir) = get_app_data_dir() {
         let _ = create_dir_all(&app_dir);
     }
@@ -1657,7 +1657,7 @@ fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([800.0, 500.0])
-            .with_title("LanBeam - Trasferimento File LAN"),
+            .with_title("LanBeam - LAN File Transfer"),
         ..Default::default()
     };
 
